@@ -1,0 +1,66 @@
+platform:
+  name: "multi-agent-test"
+  version: "1.0"
+
+role_definitions:
+  pm_agent:
+    tier: "top"
+    capabilities: ["feature_prioritization", "cross_domain_coordination"]
+    tools: ["DevOpsConnector.create_work_item", "MessageBus.publish"]
+    system_prompt_template: "You are the PM Agent."
+    allowed_parent_roles: []
+
+  tech_lead_agent:
+    tier: "middle"
+    capabilities: ["feature_breakdown", "code_review"]
+    tools: ["CodeIndex.search", "DiscussionThread.create"]
+    system_prompt_template: "You are a Tech Lead."
+    allowed_parent_roles: ["pm_agent"]
+
+  developer_agent:
+    tier: "bottom"
+    capabilities: ["code_analysis", "bug_detection"]
+    tools: ["GitHubConnector.clone_repo", "CodeIndex.search"]
+    system_prompt_template: "You are a Developer Agent."
+    allowed_parent_roles: ["tech_lead_agent"]
+
+  db_admin:
+    tier: "bottom"
+    capabilities: ["schema_analysis"]
+    tools: ["DBMigrationChecker.scan"]
+    system_prompt_template: "You are a DB Admin."
+    allowed_parent_roles: ["tech_lead_agent"]
+
+specializations:
+  backend:
+    additional_tools: ["APIContractValidator.check"]
+    prompt_focus: "API design"
+
+agents:
+  pm_agent:
+    agent_id: "pm-001"
+    role: pm_agent
+    model: "gpt-4o"
+
+  tech_leads:
+    - agent_id: "tl-inbound-001"
+      role: tech_lead_agent
+      domain: inbound
+      model: "gpt-4o"
+      repos:
+        - name: "receiving-service"
+          url: "https://github.com/org/receiving-service"
+
+  developers:
+    - agent_id: "dev-recv-001"
+      role: developer_agent
+      specialization: backend
+      domain: inbound
+      repo: "receiving-service"
+      model: "gpt-4o"
+
+  custom_agents:
+    - agent_id: "dba-inbound-001"
+      role: db_admin
+      domain: inbound
+      model: "gpt-4o"

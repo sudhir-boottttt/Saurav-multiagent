@@ -1,0 +1,252 @@
+##############################################
+# Multi-Agent Platform — Agent Manifest
+##############################################
+# This file drives the entire platform. Edit it to:
+#   - Add/remove repos and agents (hot-reload supported)
+#   - Define custom roles (no code changes needed)
+#   - Configure embedding provider
+#   - Set up specializations for developer agents
+
+platform:
+  name: "multi-agent-platform"
+  version: "1.0"
+
+# ─── LLM Configuration ───
+# Supports any OpenAI-compatible API (OpenAI, Gemini, Ollama, etc.)
+# Set api_key via this file or AGENT_LLM_API_KEY env var.
+# Set base_url for non-OpenAI providers.
+llm:
+  provider: "openai"                       # label only, for logging
+  model: "gpt-4o-mini"                     # default model for all agents
+  base_url: "https://api.openai.com/v1/"
+  # api_key: "YOUR_API_KEY"               # or set AGENT_LLM_API_KEY env var
+
+# ─── Embedding Configuration ───
+embedding:
+  provider: "fastembed"                    # "fastembed" | "gemini" | "openai"
+  model: "BAAI/bge-small-en-v1.5"         # Model name for the chosen provider
+  # api_key: "sk-..."                     # Required for gemini/openai providers
+
+# ─── Workspace Configuration ───
+workspace:
+  base_path: "/tmp/agent-repos/"           # Where cloned repos are stored
+
+# ─── Cost Controls ───
+cost_controls:
+  max_tokens_per_task: 500000
+  max_tokens_per_agent_per_hour: 200000
+  max_tokens_per_day: 5000000
+
+# ─── Role Definitions ───
+# Built-in roles: pm_agent, tech_lead_agent, developer_agent
+# Add custom roles here — no code changes needed.
+role_definitions:
+  pm_agent:
+    tier: "top"
+    capabilities:
+      - feature_prioritization
+      - impact_analysis
+      - cross_domain_coordination
+    tools:
+      - DevOpsConnector.create_work_item
+      - DevOpsConnector.query_work_items
+      - MessageBus.publish
+      - QdrantClient.search
+      - ApprovalGate.request_approval
+    system_prompt_template: |
+      You are the PM Agent. You coordinate across domains,
+      prioritize features, manage cross-domain impact analysis, and interface
+      with project management tools at the epic/feature level. {{ domain_context }}
+    allowed_parent_roles: []
+
+  tech_lead_agent:
+    tier: "middle"
+    capabilities:
+      - feature_breakdown
+      - code_review
+      - story_creation
+      - discussion_moderation
+    tools:
+      - CodeIndex.search
+      - KnowledgeBase.search
+      - DiscussionThread.create
+      - DiscussionThread.synthesize
+      - DevOpsConnector.create_child_work_item
+      - MessageBus.publish
+    system_prompt_template: |
+      You are a Tech Lead Agent for the {{ domain }} domain. You break down features
+      into stories, review code, moderate discussions, and coordinate your
+      Developer Agents. {{ domain_context }}
+    allowed_parent_roles: ["pm_agent"]
+
+  developer_agent:
+    tier: "bottom"
+    capabilities:
+      - code_analysis
+      - bug_detection
+      - fix_generation
+      - pr_creation
+      - complexity_estimation
+    tools:
+      - GitHubConnector.clone_repo
+      - GitHubConnector.create_pr
+      - GitHubConnector.get_file_diff
+      - CodeIndex.search
+      - MessageBus.publish
+      - BugScanner.scan
+    system_prompt_template: |
+      You are a Developer Agent assigned to {{ repo_name }}. Your specialization
+      is {{ specialization }}. Analyze code, detect bugs, generate fixes, and
+      create pull requests. {{ domain_context }}
+    allowed_parent_roles: ["tech_lead_agent"]
+
+  db_admin:
+    tier: "bottom"
+    capabilities:
+      - schema_analysis
+      - migration_generation
+      - query_optimization
+      - index_recommendation
+    tools:
+      - DBMigrationChecker.scan
+      - SchemaAnalyzer.analyze
+      - QueryProfiler.profile
+      - CodeIndex.search
+      - MessageBus.publish
+    system_prompt_template: |
+      You are a DB Admin Agent for the {{ domain }} domain. You analyze database
+      schemas, generate migrations, optimize queries, and recommend indexes.
+      {{ domain_context }}
+    allowed_parent_roles: ["tech_lead_agent"]
+
+  staff_engineer:
+    tier: "cross-domain"
+    capabilities:
+      - cross_domain_analysis
+      - architecture_review
+      - migration_planning
+    tools:
+      - CodeIndex.search
+      - KnowledgeBase.search
+      - MessageBus.publish
+      - GitHubConnector.get_file_diff
+    system_prompt_template: |
+      You are a Staff Engineer Agent spanning multiple domains. You handle
+      cross-domain architecture decisions, migration planning, and system-wide
+      code quality. {{ domain_context }}
+    allowed_parent_roles: ["pm_agent", "tech_lead_agent"]
+
+# ─── Developer Specializations ───
+specializations:
+  frontend:
+    additional_tools:
+      - LintRunner.eslint
+      - ComponentAnalyzer.scan
+      - AccessibilityChecker.audit
+    prompt_focus: "UI components, browser APIs, CSS, accessibility"
+
+  backend:
+    additional_tools:
+      - APIContractValidator.check
+      - DBMigrationChecker.scan
+      - LoadTestRunner.run
+    prompt_focus: "API design, data models, performance, security"
+
+  fullstack:
+    additional_tools:
+      - LintRunner.eslint
+      - ComponentAnalyzer.scan
+      - AccessibilityChecker.audit
+      - APIContractValidator.check
+      - DBMigrationChecker.scan
+      - LoadTestRunner.run
+    prompt_focus: "End-to-end feature implementation"
+
+  ui:
+    additional_tools:
+      - DesignTokenValidator.check
+      - ComponentAnalyzer.scan
+      - AccessibilityChecker.audit
+    prompt_focus: "Design system, visual consistency, UX patterns"
+
+  devops:
+    additional_tools:
+      - DockerfileAnalyzer.scan
+      - PipelineValidator.check
+      - InfraConfigChecker.audit
+    prompt_focus: "CI/CD, infrastructure, deployment configs"
+
+# ─── Agent Instances ───
+# Replace these with your own repositories and team structure.
+agents:
+  pm_agent:
+    agent_id: "pm-001"
+    role: pm_agent
+    model: "gpt-4o-mini"
+
+  tech_leads:
+    - agent_id: "tl-backend-001"
+      role: tech_lead_agent
+      domain: backend
+      model: "gpt-4o-mini"
+      repos:
+        - name: "user-service"
+        - name: "order-service"
+        - name: "payment-service"
+
+    - agent_id: "tl-frontend-001"
+      role: tech_lead_agent
+      domain: frontend
+      model: "gpt-4o-mini"
+      repos:
+        - name: "web-app"
+        - name: "mobile-app"
+
+  developers:
+    # Backend domain
+    - agent_id: "dev-user-001"
+      role: developer_agent
+      specialization: backend
+      domain: backend
+      repo: "git@github.com:your-org/user-service.git"
+      model: "gpt-4o-mini"
+
+    - agent_id: "dev-order-001"
+      role: developer_agent
+      specialization: backend
+      domain: backend
+      repo: "git@github.com:your-org/order-service.git"
+      model: "gpt-4o-mini"
+
+    - agent_id: "dev-payment-001"
+      role: developer_agent
+      specialization: backend
+      domain: backend
+      repo: "git@github.com:your-org/payment-service.git"
+      model: "gpt-4o-mini"
+
+    # Frontend domain
+    - agent_id: "dev-webapp-001"
+      role: developer_agent
+      specialization: frontend
+      domain: frontend
+      repo: "git@github.com:your-org/web-app.git"
+      model: "gpt-4o-mini"
+
+    - agent_id: "dev-mobile-001"
+      role: developer_agent
+      specialization: frontend
+      domain: frontend
+      repo: "git@github.com:your-org/mobile-app.git"
+      model: "gpt-4o-mini"
+
+  custom_agents:
+    - agent_id: "staff-eng-001"
+      role: staff_engineer
+      domains: ["backend", "frontend"]
+      model: "gpt-4o-mini"
+
+    - agent_id: "dba-001"
+      role: db_admin
+      domain: backend
+      model: "gpt-4o-mini"
