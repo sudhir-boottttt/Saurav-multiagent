@@ -33,9 +33,41 @@ PM Agent (cross-domain coordination)
 pip install -e ".[dev]"
 
 # Or install dependencies directly
-pip install autogen-agentchat qdrant-client redis fastembed pyyaml pydantic
+pip install "autogen-agentchat>=0.4.0" "autogen-ext[openai]>=0.4.0" qdrant-client redis fastembed openai pyyaml pydantic
 pip install hypothesis pytest pytest-asyncio  # dev dependencies
 ```
+
+### Local Development Setup
+
+For a smoother local run, create a virtual environment, install the project, and start the supporting services:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install -e ".[dev]"
+```
+
+Redis and Qdrant are required by the platform architecture. If a `docker-compose.yml` file is added, these services can be started with:
+
+```bash
+docker compose up -d redis qdrant
+```
+
+Create a local environment file for API keys and service URLs:
+
+```bash
+cp .env.example .env
+```
+
+Expected environment values:
+
+| Variable | Purpose |
+|----------|---------|
+| `AGENT_LLM_API_KEY` | API key used by the configured LLM provider |
+| `OPENAI_API_KEY` | OpenAI-compatible model and embedding access, when used |
+| `GEMINI_API_KEY` | Gemini embedding access, when used |
+| `QDRANT_URL` | Qdrant URL, usually `http://localhost:6333` |
+| `REDIS_URL` | Redis URL, usually `redis://localhost:6379` |
 
 ### Run the Platform
 
@@ -56,6 +88,19 @@ The platform will:
 3. Register agents, subscribe to message bus topics
 4. Start health monitoring (15s heartbeat interval)
 5. Run a main loop with hot-reload and approval timeout checks
+
+### Suggested Upgrade Notes
+
+These are small, practical upgrades that make the project easier to install, run, and contribute to:
+
+- Add `autogen-ext[openai]` and `openai` to project dependencies so AutoGen's OpenAI-compatible model client can be created without manual package discovery.
+- Add optional provider dependencies such as `google-generativeai` for Gemini embedding support.
+- Add a deterministic offline keyword embedding fallback so local development can continue even when external embedding providers are unavailable.
+- Wire the `embedding` section in `agent-manifest.yaml` into platform startup, instead of always relying on a hard-coded local fallback.
+- Add `.env.example` with the expected LLM, Redis, and Qdrant environment variables.
+- Add `docker-compose.yml` for Redis and Qdrant so contributors can start infrastructure consistently.
+- Add a `Makefile` with common commands such as `make install`, `make test`, `make run`, and `make infra-up`.
+- Replace placeholder repositories in `agent-manifest.yaml`, such as `git@github.com:your-org/...`, before using the platform against real projects.
 
 ### Run Tests
 
